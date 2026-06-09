@@ -1,0 +1,17 @@
+{
+  "name": "drumkit-js",
+  "version": "0.1.0",
+  "description": "Composant Web (vanilla) pour configurer un kit de batterie en vue de dessus via des compteurs, avec visualisation live et sortie de la liste des éléments.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": ["src"],
+  "scripts": {
+    "demo": "npx --yes serve .",
+    "test": "node test/layout.test.js"
+  },
+  "keywords": ["drum", "drumkit", "web-component", "svg", "music", "top-view"],
+  "license": "MIT"
+}

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>drum-kit — démo</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #11151c; color: #e8eaed;
+           font-family: system-ui, sans-serif; }
+    h1 { font-size: 20px; }
+    .presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+    .presets button { background: #272b33; color: #e8eaed; border: 1px solid #3a3f49;
+                      border-radius: 999px; padding: 6px 14px; cursor: pointer; font-size: 13px; }
+    .presets button:hover { border-color: #4da3ff; }
+    .layout { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    .output h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: #9aa0a6; }
+    .output ul { list-style: none; margin: 0; padding: 0; }
+    .output li { display: flex; justify-content: space-between; padding: 6px 10px;
+                 background: #1d2127; border-radius: 6px; margin-bottom: 6px; font-size: 13px; }
+    .output li .size { color: #9aa0a6; }
+    pre { background: #1d2127; border-radius: 8px; padding: 12px; font-size: 12px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>🥁 drum-kit — composant vue de dessus</h1>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="layout">
+    <drum-kit id="kit" preset="rock-5"></drum-kit>
+
+    <div class="output">
+      <h2>Éléments du kit</h2>
+      <ul id="list"></ul>
+      <h2>getElements()</h2>
+      <pre id="json"></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { PRESETS } from '../src/index.js';
+
+    const kit = document.getElementById('kit');
+    const list = document.getElementById('list');
+    const json = document.getElementById('json');
+
+    // Boutons presets
+    const presetsBar = document.getElementById('presets');
+    for (const p of PRESETS) {
+      const b = document.createElement('button');
+      b.textContent = p.name;
+      b.onclick = () => kit.setPreset(p.id);
+      presetsBar.appendChild(b);
+    }
+
+    // La sortie se met à jour à chaque changement
+    kit.addEventListener('kit-change', (e) => {
+      const els = e.detail.elements;
+      list.innerHTML = els
+        .map((el) => `<li><span>${el.label}</span><span class="size">${el.sizeIn}"</span></li>`)
+        .join('');
+      json.textContent = JSON.stringify(els, null, 2);
+    });
+
+    kit.addEventListener('piece-select', (e) => {
+      console.log('pièce sélectionnée :', e.detail.piece);
+    });
+  </script>
+</body>
+</html>
