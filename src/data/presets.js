@@ -20,7 +20,7 @@ export const PRESETS = [
   },
   {
     id: 'metal-double',
-    name: 'Metal (double pédale)',
+    name: 'Metal (double grosse caisse)',
     composition: { kick: 2, snare: 1, rackTom: 2, floorTom: 2, hihat: 1, crash: 2, ride: 1 },
   },
   {

@@ -24,9 +24,16 @@ t('buildPieces produit le bon nombre de pièces', () => {
   assert.equal(pieces.length, total);
 });
 
-t('chaque pièce a des coordonnées et un diamètre', () => {
+t('chaque pièce a des coordonnées et une taille', () => {
   for (const p of buildPieces(defaultComposition())) {
-    assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y) && p.d > 0, JSON.stringify(p));
+    const hasSize = p.shape === 'rect' ? p.w > 0 && p.h > 0 : p.d > 0;
+    assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y) && hasSize, JSON.stringify(p));
+  }
+});
+
+t('la grosse caisse est un rectangle, les autres des disques', () => {
+  for (const p of buildPieces(defaultComposition())) {
+    assert.equal(p.shape, p.type === 'kick' ? 'rect' : 'disc', JSON.stringify(p));
   }
 });
 

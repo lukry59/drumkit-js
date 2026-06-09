@@ -7,11 +7,21 @@
   "exports": {
     ".": "./src/index.js"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "demo": "npx --yes serve .",
-    "test": "node test/layout.test.js"
+    "test": "node test/layout.test.js",
+    "build:demo": "node scripts/build-standalone.mjs"
   },
-  "keywords": ["drum", "drumkit", "web-component", "svg", "music", "top-view"],
+  "keywords": [
+    "drum",
+    "drumkit",
+    "web-component",
+    "svg",
+    "music",
+    "top-view"
+  ],
   "license": "MIT"
 }

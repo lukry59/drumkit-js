@@ -11,13 +11,17 @@ expose la **liste des éléments** du kit — prêt à alimenter un wizard.
 
 ## Démo
 
-```bash
-npx serve .
-# puis ouvrir http://localhost:3000/demo/
-```
+Deux options :
 
-(Les modules ES nécessitent un serveur HTTP : ouvrir le fichier en `file://`
-ne fonctionnera pas.)
+- **`demo/standalone.html`** — fichier unique, tout inliné : il s'ouvre d'un
+  simple **double-clic**, sans serveur. Régénéré depuis `src/` via
+  `node scripts/build-standalone.mjs`.
+- **`demo/index.html`** — version modulaire (imports ES) ; nécessite un serveur :
+  ```bash
+  npx serve .
+  # puis ouvrir http://localhost:3000/demo/
+  ```
+  (En `file://`, les imports ES sont bloqués par le navigateur.)
 
 ## Utilisation
 

@@ -1,16 +1,20 @@
 // Moteur d'auto-layout : transforme une "composition" (des compteurs) en une
 // liste de pièces positionnées en vue de dessus.
 //
+// Repère : batteur assis en BAS (y élevé), il regarde vers le HAUT.
+//
+// Vue de dessus — formes :
+//   - grosse caisse : couchée au sol, peaux avant/arrière -> RECTANGLE
+//     (largeur = diamètre, hauteur = profondeur), pédale côté batteur.
+//   - caisse claire / toms / floor : peau vers le haut -> CERCLE.
+//   - charley / cymbales : disques fins vus de dessus -> CERCLE.
+//
 // Composition = { kick, snare, rackTom, floorTom, hihat, crash, ride }
-// Sortie buildPieces() = [{ id, type, label, sizeIn, x, y, d }, ...]
+// Sortie buildPieces() = [{ id, type, label, sizeIn, x, y, shape, ... }, ...]
 
 import { VIEWBOX, px } from './geometry.js';
 
 // Catégories proposées dans l'interface (ordre d'affichage des compteurs).
-//   key   : clé dans la composition
-//   label : libellé UI / nom de l'élément
-//   type  : famille de rendu ('kick'|'snare'|'tom'|'floor'|'hihat'|'cymbal')
-//   min/max/default : bornes du compteur
 export const CATEGORIES = [
   { key: 'kick',     label: 'Grosse caisse', type: 'kick',   min: 1, max: 2, default: 1 },
   { key: 'snare',    label: 'Caisse claire', type: 'snare',  min: 1, max: 2, default: 1 },
@@ -21,14 +25,12 @@ export const CATEGORIES = [
   { key: 'ride',     label: 'Ride',          type: 'cymbal', min: 0, max: 2, default: 1 },
 ];
 
-// Composition par défaut (dérivée des catégories).
 export function defaultComposition() {
   const c = {};
   for (const cat of CATEGORIES) c[cat.key] = cat.default;
   return c;
 }
 
-// Borne et nettoie une composition partielle.
 export function normalizeComposition(input = {}) {
   const c = {};
   for (const cat of CATEGORIES) {
@@ -38,83 +40,95 @@ export function normalizeComposition(input = {}) {
   return c;
 }
 
-// Numérote un libellé seulement s'il y a plusieurs exemplaires.
 function label(base, i, total) {
   return total > 1 ? `${base} ${i + 1}` : base;
 }
 
-// Centre de référence (au-dessus duquel s'arque la rangée de toms).
+// Repères de mise en page (coordonnées viewBox, batteur en bas).
 const KICK_CX = 220;
-const KICK_CY = 255;
+const KICK_CY = 252;          // centre de la grosse caisse
+const KICK_DIAM = 22;         // diamètre (-> largeur du rectangle)
+const KICK_DEPTH = 18;        // profondeur (-> hauteur du rectangle)
 
-// Tailles "réalistes" attribuées par index.
+// Centre autour duquel les toms rack s'arquent (bord avant du kick).
+const TOM_ARC_CX = 220;
+const TOM_ARC_CY = 236;
+const TOM_ARC_R = 92;
+
 const RACK_SIZES = [10, 12, 13, 14];
 const FLOOR_SLOTS = [
-  { x: 322, y: 295, sizeIn: 16 },
-  { x: 384, y: 298, sizeIn: 16 },
-  { x: 392, y: 218, sizeIn: 18 },
+  { x: 322, y: 292, sizeIn: 16 },
+  { x: 384, y: 250, sizeIn: 16 },
+  { x: 394, y: 178, sizeIn: 18 },
 ];
 const CRASH_SLOTS = [
-  { x: 118, y: 118, sizeIn: 16 },
-  { x: 252, y: 96,  sizeIn: 18 },
-  { x: 360, y: 112, sizeIn: 17 },
+  { x: 122, y: 150, sizeIn: 16 },
+  { x: 250, y: 108, sizeIn: 18 },
+  { x: 368, y: 116, sizeIn: 17 },
 ];
 const RIDE_SLOTS = [
-  { x: 348, y: 188, sizeIn: 20 },
-  { x: 200, y: 92,  sizeIn: 22 },
+  { x: 348, y: 198, sizeIn: 20 },
+  { x: 206, y: 96,  sizeIn: 22 },
 ];
 
 export function buildPieces(composition) {
   const c = normalizeComposition(composition);
   const pieces = [];
-  const add = (id, type, lbl, sizeIn, x, y) =>
-    pieces.push({ id, type, label: lbl, sizeIn, x, y, d: px(sizeIn) });
 
-  // Grosse caisse — centrée ; en double pédale, deux fûts côte à côte.
-  const kickXs = c.kick === 1 ? [KICK_CX] : [KICK_CX - 32, KICK_CX + 32];
+  const addDisc = (id, type, lbl, sizeIn, x, y) =>
+    pieces.push({ id, type, label: lbl, sizeIn, x, y, shape: 'disc', d: px(sizeIn) });
+
+  // Grosse caisse — rectangle (vue de dessus), pédale en bas (côté batteur).
+  // Double grosse caisse : deux fûts côte à côte.
+  const kickW = px(KICK_DIAM);
+  const kickH = px(KICK_DEPTH);
+  const kickXs = c.kick === 1 ? [KICK_CX] : [KICK_CX - kickW / 2 - 2, KICK_CX + kickW / 2 + 2];
   kickXs.forEach((x, i) =>
-    add(`kick${i + 1}`, 'kick', label('Grosse caisse', i, c.kick), 22, x, KICK_CY));
+    pieces.push({
+      id: `kick${i + 1}`, type: 'kick', label: label('Grosse caisse', i, c.kick),
+      sizeIn: KICK_DIAM, depthIn: KICK_DEPTH, x, y: KICK_CY,
+      shape: 'rect', w: kickW, h: kickH,
+    }));
 
-  // Caisse claire — entre les jambes, légèrement à gauche.
-  const snareSlots = [[152, 296], [108, 300]];
+  // Caisse claire — devant le batteur, calée à gauche du kick.
+  const snareSlots = [[150, 300], [104, 304]];
   for (let i = 0; i < c.snare; i++) {
     const [x, y] = snareSlots[i] || snareSlots[snareSlots.length - 1];
-    add(`snare${i + 1}`, 'snare', label('Caisse claire', i, c.snare), 14, x, y);
+    addDisc(`snare${i + 1}`, 'snare', label('Caisse claire', i, c.snare), 14, x, y);
   }
 
   // Charleston — à gauche, près du batteur.
   for (let i = 0; i < c.hihat; i++) {
-    add('hihat', 'hihat', 'Charleston', 14, 88, 280);
+    addDisc('hihat', 'hihat', 'Charleston', 14, 74, 286);
   }
 
-  // Toms rack — arc régulier au-dessus de la grosse caisse.
+  // Toms rack — arc régulier au-dessus du bord avant de la grosse caisse.
   const n = c.rackTom;
-  const R = 100;
   for (let i = 0; i < n; i++) {
     const t = n === 1 ? 0.5 : i / (n - 1);
-    const a = ((-120 + t * 60) * Math.PI) / 180; // de -120° (haut-gauche) à -60°
-    const x = KICK_CX + R * Math.cos(a);
-    const y = KICK_CY + R * Math.sin(a);
+    const a = ((-118 + t * 56) * Math.PI) / 180; // de -118° (haut-gauche) à -62°
+    const x = TOM_ARC_CX + TOM_ARC_R * Math.cos(a);
+    const y = TOM_ARC_CY + TOM_ARC_R * Math.sin(a);
     const sizeIn = RACK_SIZES[Math.min(i, RACK_SIZES.length - 1)];
-    add(`rackTom${i + 1}`, 'tom', label('Tom', i, n), sizeIn, x, y);
+    addDisc(`rackTom${i + 1}`, 'tom', label('Tom', i, n), sizeIn, x, y);
   }
 
-  // Floor toms — à droite du batteur, en éventail.
+  // Floor toms — à droite du batteur.
   for (let i = 0; i < c.floorTom; i++) {
     const s = FLOOR_SLOTS[Math.min(i, FLOOR_SLOTS.length - 1)];
-    add(`floorTom${i + 1}`, 'floor', label('Floor tom', i, c.floorTom), s.sizeIn, s.x, s.y);
+    addDisc(`floorTom${i + 1}`, 'floor', label('Floor tom', i, c.floorTom), s.sizeIn, s.x, s.y);
   }
 
   // Crashs — autour, en haut.
   for (let i = 0; i < c.crash; i++) {
     const s = CRASH_SLOTS[Math.min(i, CRASH_SLOTS.length - 1)];
-    add(`crash${i + 1}`, 'cymbal', label('Crash', i, c.crash), s.sizeIn, s.x, s.y);
+    addDisc(`crash${i + 1}`, 'cymbal', label('Crash', i, c.crash), s.sizeIn, s.x, s.y);
   }
 
   // Rides — à droite.
   for (let i = 0; i < c.ride; i++) {
     const s = RIDE_SLOTS[Math.min(i, RIDE_SLOTS.length - 1)];
-    add(`ride${i + 1}`, 'cymbal', label('Ride', i, c.ride), s.sizeIn, s.x, s.y);
+    addDisc(`ride${i + 1}`, 'cymbal', label('Ride', i, c.ride), s.sizeIn, s.x, s.y);
   }
 
   return pieces;
