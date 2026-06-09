@@ -122,7 +122,10 @@ class DrumKit extends HTMLElement {
       if (p) this._composition = normalizeComposition(p.composition);
     }
     this._render();
-    this._emitChange();
+    // Émission initiale différée : connectedCallback peut s'exécuter pendant
+    // customElements.define(), donc avant que les écouteurs externes (démo,
+    // wizard) ne soient attachés. queueMicrotask laisse ce code s'exécuter.
+    queueMicrotask(() => this._emitChange());
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
