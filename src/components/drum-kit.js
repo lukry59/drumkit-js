@@ -93,33 +93,47 @@ function shine(cx, cy, r) {
 function renderPiece(p) {
   const cls = `piece piece-${p.type}`;
 
-  // Grosse caisse — rectangle vu de dessus, rail + tiges en haut, pédale en bas.
+  // Grosse caisse — vue de dessus : cerclage (counterhoop) + tirants de
+  // tension tout autour + support de toms (rail) en haut + pédale en bas.
   if (p.shape === 'rect') {
     const x0 = p.x - p.w / 2, y0 = p.y - p.h / 2;
-    const railY = y0 - 18;
+    const x1 = p.x + p.w / 2, y1 = p.y + p.h / 2;
+
+    // Tirant de tension (griffe) : trait depuis la peau vers l'extérieur du
+    // cerclage + petite vis ronde, comme sur les fûts.
+    const lug = (ex, ey, nx, ny) => {
+      const ix = ex - nx * 9, iy = ey - ny * 9;     // côté peau
+      const ox = ex + nx * 5, oy = ey + ny * 5;     // côté extérieur
+      return `<line class="ink" x1="${f1(ix)}" y1="${f1(iy)}" x2="${f1(ox)}" y2="${f1(oy)}" stroke-width="1.6"/>`
+           + `<circle class="fillw" cx="${f1(ox)}" cy="${f1(oy)}" r="2.6" stroke-width="1.4"/>`;
+    };
+    let lugsK = '';
+    [0.1, 0.9].forEach((fx) => { lugsK += lug(x0 + fx * p.w, y0, 0, -1); });        // haut (coins)
+    [0.18, 0.5, 0.82].forEach((fx) => { lugsK += lug(x0 + fx * p.w, y1, 0, 1); });  // bas
+    [0.32, 0.68].forEach((fy) => { lugsK += lug(x0, y0 + fy * p.h, -1, 0); });       // gauche
+    [0.32, 0.68].forEach((fy) => { lugsK += lug(x1, y0 + fy * p.h, 1, 0); });        // droite
+
+    // Support de toms (rail centré) + tiges qui montent.
+    const railY = y0 - 17;
+    const rcx0 = p.x - p.w * 0.28, rcx1 = p.x + p.w * 0.28;
     let rods = '';
-    const nRods = 5;
+    const nRods = 4;
     for (let i = 0; i < nRods; i++) {
-      const rx = x0 + 10 + (i * (p.w - 20)) / (nRods - 1);
-      rods += `<line class="ink" x1="${f1(rx)}" y1="${railY + 3}" x2="${f1(rx)}" y2="${y0}" stroke-width="2"/>`;
-      rods += `<rect class="fillw" x="${f1(rx - 4)}" y="${railY - 4}" width="8" height="8" stroke-width="1.4"/>`;
+      const rx = rcx0 + (i * (rcx1 - rcx0)) / (nRods - 1);
+      rods += `<line class="ink" x1="${f1(rx)}" y1="${railY + 2}" x2="${f1(rx)}" y2="${f1(y0 - 1)}" stroke-width="2"/>`;
+      rods += `<rect class="fillw" x="${f1(rx - 3.5)}" y="${f1(railY - 4)}" width="7" height="7" stroke-width="1.3"/>`;
     }
-    // Lugs sur les bords gauche/droit.
-    let sideLugs = '';
-    const nSide = 4;
-    for (let i = 0; i < nSide; i++) {
-      const ly = y0 + 12 + (i * (p.h - 24)) / (nSide - 1);
-      sideLugs += `<circle class="fillw" cx="${f1(x0)}" cy="${f1(ly)}" r="2.6" stroke-width="1.4"/>`;
-      sideLugs += `<circle class="fillw" cx="${f1(x0 + p.w)}" cy="${f1(ly)}" r="2.6" stroke-width="1.4"/>`;
-    }
+
     return `
       <g class="${cls}" data-id="${p.id}">
-        <line class="ink" x1="${f1(x0 + 6)}" y1="${railY}" x2="${f1(x0 + p.w - 6)}" y2="${railY}" stroke-width="2.5"/>
+        <line class="ink" x1="${f1(rcx0)}" y1="${f1(railY)}" x2="${f1(rcx1)}" y2="${f1(railY)}" stroke-width="2.5"/>
         ${rods}
-        <rect class="body fillw" x="${f1(x0)}" y="${f1(y0)}" width="${f1(p.w)}" height="${f1(p.h)}" rx="13" stroke-width="2.5"/>
-        <rect class="ink" x="${f1(x0 + 7)}" y="${f1(y0 + 7)}" width="${f1(p.w - 14)}" height="${f1(p.h - 14)}" rx="8" stroke-width="1.2"/>
-        ${sideLugs}
-        <rect class="fillw" x="${f1(p.x - 6)}" y="${f1(y0 + p.h - 2)}" width="12" height="16" rx="2" stroke-width="1.6"/>
+        ${lugsK}
+        <rect class="body fillw" x="${f1(x0)}" y="${f1(y0)}" width="${f1(p.w)}" height="${f1(p.h)}" rx="16" stroke-width="2.5"/>
+        <circle class="fillw" cx="${p.x}" cy="${p.y}" r="${f1(p.h / 2 - 8)}" stroke-width="1.8"/>
+        <circle class="ink" cx="${p.x}" cy="${p.y}" r="${f1(p.h / 2 - 13)}" stroke-width="1"/>
+        <rect class="fillw" x="${f1(p.x - 7)}" y="${f1(y1 - 2)}" width="14" height="9" rx="2" stroke-width="1.6"/>
+        <rect class="fillw" x="${f1(p.x - 4)}" y="${f1(y1 + 6)}" width="8" height="12" rx="2" stroke-width="1.5"/>
         <text x="${p.x}" y="${p.y + 4}">${p.label}</text>
       </g>`;
   }
