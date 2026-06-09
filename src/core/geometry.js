@@ -1,10 +1,11 @@
-// Constantes de la vue de dessus.
+// Constantes de la vue de dessus (style "cutting file" : trait noir / fond blanc).
 //
-// Repère : origine en haut-gauche (convention SVG). Le batteur est assis en
-// BAS (y élevé) et regarde vers le HAUT. Les positions des pièces sont
-// calculées dynamiquement par core/layout.js en fonction des compteurs.
+// Repère : origine en haut-gauche (convention SVG). La grosse caisse est en
+// HAUT (elle pointe vers le public), le batteur / trône est en BAS. Le kit
+// enveloppe le batteur. Les positions des pièces sont calculées par
+// core/layout.js en fonction des compteurs.
 
-export const VIEWBOX = { w: 440, h: 400 };
+export const VIEWBOX = { w: 480, h: 480 };
 
 // Échelle d'affichage : un fût/cymbale de N pouces fait N * PX_PER_INCH px.
 export const PX_PER_INCH = 5;

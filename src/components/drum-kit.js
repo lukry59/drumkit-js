@@ -17,7 +17,7 @@
 //   el.addEventListener('piece-select', (e) => console.log(e.detail.piece));
 
 import { VIEWBOX, px } from '../core/geometry.js';
-import { CATEGORIES, defaultComposition, normalizeComposition, buildPieces } from '../core/layout.js';
+import { CATEGORIES, defaultComposition, normalizeComposition, buildPieces, THRONE } from '../core/layout.js';
 import { getPreset } from '../data/presets.js';
 
 const STYLE = `
@@ -43,64 +43,126 @@ const STYLE = `
 
   .total { margin-top: 4px; font-size: 12px; color: #9aa0a6; }
 
-  .stage { width: 100%; height: auto; background: #1d2127; border-radius: 12px; user-select: none; }
+  /* Scène style "cutting file" : trait noir sur fond blanc. */
+  .stage { width: 100%; height: auto; background: #fff; border-radius: 12px;
+           border: 1px solid #2c313a; user-select: none; }
+  .stage .ink { fill: none; stroke: #111; }
   .piece { cursor: pointer; }
-  .piece text { fill: #e8eaed; font-size: 11px; text-anchor: middle; pointer-events: none; }
-  .piece.selected .head, .piece.selected .cymbal { stroke: #4da3ff; stroke-width: 3; }
+  .piece text { fill: #111; font-size: 11px; font-weight: 600; text-anchor: middle; pointer-events: none; }
+  .piece .fillw { fill: #fff; stroke: #111; }
+  .piece:hover .body { stroke: #e0532f; }
+  .piece.selected .body { stroke: #e0532f; stroke-width: 3.5; }
 `;
+
+// --- Helpers de dessin (style line-art) -----------------------------------
+const f1 = (n) => n.toFixed(1);
+const polar = (cx, cy, r, deg) => {
+  const a = (deg * Math.PI) / 180;
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+};
+
+// Lugs (vis de tension) : petits cercles répartis sur le cerclage.
+function lugs(cx, cy, r, count) {
+  let s = '';
+  for (let i = 0; i < count; i++) {
+    const [x, y] = polar(cx, cy, r, (360 / count) * i - 90);
+    s += `<circle class="fillw" cx="${f1(x)}" cy="${f1(y)}" r="2.6" stroke-width="1.4"/>`;
+  }
+  return s;
+}
+
+// Grooves concentriques d'une cymbale.
+function grooves(cx, cy, r) {
+  return [0.86, 0.72, 0.58, 0.44].map((k) =>
+    `<circle class="ink" cx="${cx}" cy="${cy}" r="${f1(r * k)}" stroke-width="1"/>`).join('');
+}
+
+// Lignes de brillance (un quart de cymbale).
+function shine(cx, cy, r) {
+  let s = '';
+  for (let i = 0; i < 7; i++) {
+    const d = 186 + i * 9;
+    const [x1, y1] = polar(cx, cy, r * 0.52, d);
+    const [x2, y2] = polar(cx, cy, r * 0.82, d);
+    s += `<line class="ink" x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" stroke-width="1"/>`;
+  }
+  return s;
+}
 
 // Dessine une pièce (chaîne SVG) selon sa forme / son type.
 function renderPiece(p) {
   const cls = `piece piece-${p.type}`;
 
-  // Grosse caisse — rectangle vu de dessus, pédale côté batteur (bas).
+  // Grosse caisse — rectangle vu de dessus, rail + tiges en haut, pédale en bas.
   if (p.shape === 'rect') {
-    const x0 = p.x - p.w / 2;
-    const y0 = p.y - p.h / 2;
-    const pedalY = p.y + p.h / 2; // bord côté batteur
+    const x0 = p.x - p.w / 2, y0 = p.y - p.h / 2;
+    const railY = y0 - 18;
+    let rods = '';
+    const nRods = 5;
+    for (let i = 0; i < nRods; i++) {
+      const rx = x0 + 10 + (i * (p.w - 20)) / (nRods - 1);
+      rods += `<line class="ink" x1="${f1(rx)}" y1="${railY + 3}" x2="${f1(rx)}" y2="${y0}" stroke-width="2"/>`;
+      rods += `<rect class="fillw" x="${f1(rx - 4)}" y="${railY - 4}" width="8" height="8" stroke-width="1.4"/>`;
+    }
+    // Lugs sur les bords gauche/droit.
+    let sideLugs = '';
+    const nSide = 4;
+    for (let i = 0; i < nSide; i++) {
+      const ly = y0 + 12 + (i * (p.h - 24)) / (nSide - 1);
+      sideLugs += `<circle class="fillw" cx="${f1(x0)}" cy="${f1(ly)}" r="2.6" stroke-width="1.4"/>`;
+      sideLugs += `<circle class="fillw" cx="${f1(x0 + p.w)}" cy="${f1(ly)}" r="2.6" stroke-width="1.4"/>`;
+    }
     return `
       <g class="${cls}" data-id="${p.id}">
-        <rect class="head" x="${x0}" y="${y0}" width="${p.w}" height="${p.h}" rx="14"
-              fill="#6b4f34" stroke="#3f2e1f" stroke-width="2"/>
-        <rect x="${x0 + 6}" y="${y0 + 6}" width="${p.w - 12}" height="${p.h - 12}" rx="9"
-              fill="#f3ead4" stroke="#00000022" stroke-width="1"/>
-        <rect x="${p.x - 5}" y="${pedalY - 1}" width="10" height="14" rx="2" fill="#9aa0a6"/>
-        <text x="${p.x}" y="${p.y + 4}" fill="#3a3a3a">${p.label}</text>
+        <line class="ink" x1="${f1(x0 + 6)}" y1="${railY}" x2="${f1(x0 + p.w - 6)}" y2="${railY}" stroke-width="2.5"/>
+        ${rods}
+        <rect class="body fillw" x="${f1(x0)}" y="${f1(y0)}" width="${f1(p.w)}" height="${f1(p.h)}" rx="13" stroke-width="2.5"/>
+        <rect class="ink" x="${f1(x0 + 7)}" y="${f1(y0 + 7)}" width="${f1(p.w - 14)}" height="${f1(p.h - 14)}" rx="8" stroke-width="1.2"/>
+        ${sideLugs}
+        <rect class="fillw" x="${f1(p.x - 6)}" y="${f1(y0 + p.h - 2)}" width="12" height="16" rx="2" stroke-width="1.6"/>
+        <text x="${p.x}" y="${p.y + 4}">${p.label}</text>
       </g>`;
   }
 
   const r = p.d / 2;
   const labelY = p.y + r + 13;
 
-  // Cymbales & charleston — disques fins vus de dessus.
+  // Cymbales & charleston — grooves + cloche + brillance.
   if (p.type === 'cymbal' || p.type === 'hihat') {
-    const isHat = p.type === 'hihat';
+    const stand = p.type === 'hihat'
+      ? `<line class="ink" x1="${p.x}" y1="${f1(p.y + r)}" x2="${p.x}" y2="${f1(p.y + r + 12)}" stroke-width="2"/>
+         <circle class="fillw" cx="${p.x}" cy="${f1(p.y + r + 14)}" r="3" stroke-width="1.4"/>`
+      : '';
     return `
       <g class="${cls}" data-id="${p.id}">
-        <circle class="cymbal" cx="${p.x}" cy="${p.y}" r="${r}"
-                fill="url(#cymbalGrad)" stroke="#8a6d1f" stroke-width="1.5"/>
-        <circle cx="${p.x}" cy="${p.y}" r="${r * 0.66}" fill="none" stroke="#a8842b" stroke-width="0.8"/>
-        <circle cx="${p.x}" cy="${p.y}" r="${r * 0.33}" fill="none" stroke="#a8842b" stroke-width="0.8"/>
-        <circle cx="${p.x}" cy="${p.y}" r="${r * 0.14}" fill="#b8902f"/>
-        ${isHat ? `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="none" stroke="#cdb35a" stroke-width="1" stroke-dasharray="3 3"/>` : ''}
+        ${stand}
+        <circle class="body fillw" cx="${p.x}" cy="${p.y}" r="${f1(r)}" stroke-width="2.5"/>
+        ${grooves(p.x, p.y, r)}
+        ${shine(p.x, p.y, r)}
+        <circle class="ink" cx="${p.x}" cy="${p.y}" r="${f1(r * 0.2)}" stroke-width="1.5"/>
+        <circle cx="${p.x}" cy="${p.y}" r="2.2" fill="#111"/>
         <text x="${p.x}" y="${labelY}">${p.label}</text>
       </g>`;
   }
 
-  // Caisse claire / toms / floor — peau vers le haut -> cercle.
-  const headFill = p.type === 'snare' ? '#fbfbf6' : '#f3ead4';
-  const shell = p.type === 'snare' ? '#c7ccd1' : '#7a5a3a';
-  // Gros fûts : libellé au centre ; petits toms : libellé dessous.
-  const bigDrum = p.type === 'snare' || p.type === 'floor';
-  const txt = bigDrum
-    ? `<text x="${p.x}" y="${p.y + 4}" fill="#3a3a3a">${p.label}</text>`
+  // Caisse claire / toms / floor — cerclage + peau + lugs.
+  const lugCount = Math.max(6, Math.round(p.sizeIn * 0.6));
+  const labelInside = r >= 32; // gros fûts : libellé au centre
+  const txt = labelInside
+    ? `<text x="${p.x}" y="${p.y + 4}">${p.label}</text>`
     : `<text x="${p.x}" y="${labelY}">${p.label}</text>`;
   return `
     <g class="${cls}" data-id="${p.id}">
-      <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${shell}"/>
-      <circle class="head" cx="${p.x}" cy="${p.y}" r="${r - 3}" fill="${headFill}" stroke="#0003" stroke-width="1"/>
+      <circle class="body fillw" cx="${p.x}" cy="${p.y}" r="${f1(r)}" stroke-width="2.5"/>
+      <circle class="ink" cx="${p.x}" cy="${p.y}" r="${f1(r - 6)}" stroke-width="1.4"/>
+      ${lugs(p.x, p.y, r, lugCount)}
       ${txt}
     </g>`;
+}
+
+// Décor statique : trône du batteur (disque plein), repère d'orientation.
+function renderThrone() {
+  return `<circle cx="${THRONE.x}" cy="${THRONE.y}" r="${THRONE.r}" fill="#111"/>`;
 }
 
 class DrumKit extends HTMLElement {
@@ -218,13 +280,7 @@ class DrumKit extends HTMLElement {
       <div class="wrap ${withControls ? '' : 'no-controls'}">
         ${controlsHtml}
         <svg class="stage" viewBox="0 0 ${VIEWBOX.w} ${VIEWBOX.h}" role="img" aria-label="Kit de batterie, vue de dessus">
-          <defs>
-            <radialGradient id="cymbalGrad" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#e7c75a"/>
-              <stop offset="70%" stop-color="#c79a2f"/>
-              <stop offset="100%" stop-color="#a8842b"/>
-            </radialGradient>
-          </defs>
+          ${renderThrone()}
           ${pieces.map(renderPiece).join('')}
         </svg>
       </div>`;

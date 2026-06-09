@@ -1,20 +1,18 @@
 // Moteur d'auto-layout : transforme une "composition" (des compteurs) en une
 // liste de pièces positionnées en vue de dessus.
 //
-// Repère : batteur assis en BAS (y élevé), il regarde vers le HAUT.
-//
-// Vue de dessus — formes :
-//   - grosse caisse : couchée au sol, peaux avant/arrière -> RECTANGLE
-//     (largeur = diamètre, hauteur = profondeur), pédale côté batteur.
-//   - caisse claire / toms / floor : peau vers le haut -> CERCLE.
-//   - charley / cymbales : disques fins vus de dessus -> CERCLE.
+// Disposition (cf. référence "cutting file") :
+//   - grosse caisse EN HAUT (rectangle), batteur/trône EN BAS ;
+//   - toms rack en arc juste sous la grosse caisse (vers le batteur) ;
+//   - crashs en haut, charley à gauche, ride à droite ;
+//   - floor tom(s) en bas, de part et d'autre du batteur ;
+//   - caisse claire devant le batteur.
 //
 // Composition = { kick, snare, rackTom, floorTom, hihat, crash, ride }
 // Sortie buildPieces() = [{ id, type, label, sizeIn, x, y, shape, ... }, ...]
 
 import { VIEWBOX, px } from './geometry.js';
 
-// Catégories proposées dans l'interface (ordre d'affichage des compteurs).
 export const CATEGORIES = [
   { key: 'kick',     label: 'Grosse caisse', type: 'kick',   min: 1, max: 2, default: 1 },
   { key: 'snare',    label: 'Caisse claire', type: 'snare',  min: 1, max: 2, default: 1 },
@@ -44,31 +42,30 @@ function label(base, i, total) {
   return total > 1 ? `${base} ${i + 1}` : base;
 }
 
-// Repères de mise en page (coordonnées viewBox, batteur en bas).
-const KICK_CX = 220;
-const KICK_CY = 252;          // centre de la grosse caisse
+// Repères de mise en page (coordonnées viewBox).
+const CENTER_X = 240;
+const KICK_CY = 96;           // grosse caisse en haut
 const KICK_DIAM = 22;         // diamètre (-> largeur du rectangle)
 const KICK_DEPTH = 18;        // profondeur (-> hauteur du rectangle)
 
-// Centre autour duquel les toms rack s'arquent (bord avant du kick).
-const TOM_ARC_CX = 220;
-const TOM_ARC_CY = 236;
-const TOM_ARC_R = 92;
+// Arc des toms rack : sous la grosse caisse, bombé vers le batteur (bas).
+const TOM_ARC_CY = 150;
+const TOM_ARC_R = 96;
 
 const RACK_SIZES = [10, 12, 13, 14];
 const FLOOR_SLOTS = [
-  { x: 322, y: 292, sizeIn: 16 },
-  { x: 384, y: 250, sizeIn: 16 },
-  { x: 394, y: 178, sizeIn: 18 },
+  { x: 372, y: 342, sizeIn: 16 },
+  { x: 434, y: 406, sizeIn: 16 },
+  { x: 450, y: 286, sizeIn: 18 },
 ];
 const CRASH_SLOTS = [
-  { x: 122, y: 150, sizeIn: 16 },
-  { x: 250, y: 108, sizeIn: 18 },
-  { x: 368, y: 116, sizeIn: 17 },
+  { x: 92,  y: 168, sizeIn: 16 },
+  { x: 360, y: 120, sizeIn: 18 },
+  { x: 232, y: 70,  sizeIn: 17 },
 ];
 const RIDE_SLOTS = [
-  { x: 348, y: 198, sizeIn: 20 },
-  { x: 206, y: 96,  sizeIn: 22 },
+  { x: 422, y: 210, sizeIn: 20 },
+  { x: 300, y: 300, sizeIn: 22 },
 ];
 
 export function buildPieces(composition) {
@@ -78,11 +75,11 @@ export function buildPieces(composition) {
   const addDisc = (id, type, lbl, sizeIn, x, y) =>
     pieces.push({ id, type, label: lbl, sizeIn, x, y, shape: 'disc', d: px(sizeIn) });
 
-  // Grosse caisse — rectangle (vue de dessus), pédale en bas (côté batteur).
+  // Grosse caisse — rectangle en haut ; pédale côté batteur (bas).
   // Double grosse caisse : deux fûts côte à côte.
   const kickW = px(KICK_DIAM);
   const kickH = px(KICK_DEPTH);
-  const kickXs = c.kick === 1 ? [KICK_CX] : [KICK_CX - kickW / 2 - 2, KICK_CX + kickW / 2 + 2];
+  const kickXs = c.kick === 1 ? [CENTER_X] : [CENTER_X - kickW / 2 - 2, CENTER_X + kickW / 2 + 2];
   kickXs.forEach((x, i) =>
     pieces.push({
       id: `kick${i + 1}`, type: 'kick', label: label('Grosse caisse', i, c.kick),
@@ -90,8 +87,19 @@ export function buildPieces(composition) {
       shape: 'rect', w: kickW, h: kickH,
     }));
 
-  // Caisse claire — devant le batteur, calée à gauche du kick.
-  const snareSlots = [[150, 300], [104, 304]];
+  // Toms rack — arc régulier sous la grosse caisse (bombé vers le bas).
+  const n = c.rackTom;
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const a = ((118 - t * 56) * Math.PI) / 180; // de 118° (bas-gauche) à 62° (bas-droite)
+    const x = CENTER_X + TOM_ARC_R * Math.cos(a);
+    const y = TOM_ARC_CY + TOM_ARC_R * Math.sin(a);
+    const sizeIn = RACK_SIZES[Math.min(i, RACK_SIZES.length - 1)];
+    addDisc(`rackTom${i + 1}`, 'tom', label('Tom', i, n), sizeIn, x, y);
+  }
+
+  // Caisse claire — devant le batteur, à gauche.
+  const snareSlots = [[168, 330], [120, 360]];
   for (let i = 0; i < c.snare; i++) {
     const [x, y] = snareSlots[i] || snareSlots[snareSlots.length - 1];
     addDisc(`snare${i + 1}`, 'snare', label('Caisse claire', i, c.snare), 14, x, y);
@@ -99,18 +107,7 @@ export function buildPieces(composition) {
 
   // Charleston — à gauche, près du batteur.
   for (let i = 0; i < c.hihat; i++) {
-    addDisc('hihat', 'hihat', 'Charleston', 14, 74, 286);
-  }
-
-  // Toms rack — arc régulier au-dessus du bord avant de la grosse caisse.
-  const n = c.rackTom;
-  for (let i = 0; i < n; i++) {
-    const t = n === 1 ? 0.5 : i / (n - 1);
-    const a = ((-118 + t * 56) * Math.PI) / 180; // de -118° (haut-gauche) à -62°
-    const x = TOM_ARC_CX + TOM_ARC_R * Math.cos(a);
-    const y = TOM_ARC_CY + TOM_ARC_R * Math.sin(a);
-    const sizeIn = RACK_SIZES[Math.min(i, RACK_SIZES.length - 1)];
-    addDisc(`rackTom${i + 1}`, 'tom', label('Tom', i, n), sizeIn, x, y);
+    addDisc('hihat', 'hihat', 'Charleston', 14, 80, 312);
   }
 
   // Floor toms — à droite du batteur.
@@ -119,7 +116,7 @@ export function buildPieces(composition) {
     addDisc(`floorTom${i + 1}`, 'floor', label('Floor tom', i, c.floorTom), s.sizeIn, s.x, s.y);
   }
 
-  // Crashs — autour, en haut.
+  // Crashs — en haut, autour de la grosse caisse.
   for (let i = 0; i < c.crash; i++) {
     const s = CRASH_SLOTS[Math.min(i, CRASH_SLOTS.length - 1)];
     addDisc(`crash${i + 1}`, 'cymbal', label('Crash', i, c.crash), s.sizeIn, s.x, s.y);
@@ -133,5 +130,8 @@ export function buildPieces(composition) {
 
   return pieces;
 }
+
+// Position du trône (batteur), pour la décoration statique du rendu.
+export const THRONE = { x: CENTER_X, y: 446, r: 20 };
 
 export { VIEWBOX };
